@@ -11,7 +11,7 @@
     <meta charset="UTF-8" />
     <title>
         
-            自定义扩展fis的release命令，增加更新index.manifest时间戳的功能
+            让mkdocs支持中文搜索
         
     </title>
     <meta name="generator" content="Jekyll" />
@@ -83,87 +83,54 @@
     <span> &gt; </span>
     <a href="http://127.0.0.1:8888/archives.html" rel="nofollow" >Archives</a>
     <span> &gt; </span>
-    自定义扩展fis的release命令，增加更新index.manifest时间戳的功能
+    让mkdocs支持中文搜索
 </p>
-<h1 class="lotus-pagetit">自定义扩展fis的release命令，增加更新index.manifest时间戳的功能</h1>
-<p class="lotus-meta">Publish: <time class="date" pubdate="June  2, 2015">June  2, 2015</time></p>
+<h1 class="lotus-pagetit">让mkdocs支持中文搜索</h1>
+<p class="lotus-meta">Publish: <time class="date" pubdate="August 13, 2015">August 13, 2015</time></p>
 <article  itemscope itemtype="http://schema.org/Article" class="lotus-post">
-<p>最近在一个web app中使用fis作为构建工具，用起来很不错，常用功能齐全，比grunt的配置简单，中文文档写的很专业，团队其他小伙伴也很容易上手。谢谢百度前端团队。</p>
+<p>mkdocs是一个很方便的文档网站生成工具，通过简易的配置和markdown文件就可以生成很美观专业的文档网站。效果请参考：http://www.mkdocs.org/。</p>
 
-<p>我在web app中使用了离线缓存，每次代码修改都需要更新manifest文件的时间戳，这个工作手工做比较无趣，而且容易忘记，于是扩展了一下release命令，代码如下：</p>
+<p>mkdocs自带搜索功能，可以根据全站导航进行搜索，很方便，唯一不足的是不支持中文搜索。这点不足让我很是不爽，于是自己动手解决问题。</p>
 
-<p>在option中增加－M配置：</p>
+<p>经过一系列艰苦卓绝的追踪分析，发现mkdocs不支持中文搜索的原因是：</p>
 
-<pre><code>.option('-M, --manifest &lt;file&gt;', 'generate manifest file')
+<ul>
+  <li>搜索功能使用了lunr.js（一个js的分词搜索引擎），这玩意目前不支持中文。</li>
+  <li>mkdocs工具在build时生成的搜索索引文件（json格式），中文被转成了ascii码，搜索的数据源直接就是乱码</li>
+</ul>
+
+<p>为了解决这两个问题，很费了一些时间和视力，顺便了解了一下python。解决方法如下：</p>
+
+<ul>
+  <li>使用国内同仁修改过的支持中文的lunr.js（https://github.com/ming300/lunr.js），记得star一下。</li>
+  <li>
+    <p>修改mkdocs的search文件（mkdocs/search.py）,修改generate_search_index方法：</p>
+
+    <pre><code>  return json.dumps(page_dicts, sort_keys=True,ensure_ascii=False, indent=4)
 </code></pre>
+  </li>
+</ul>
 
-<p>在action中实现：</p>
+<p>增加了<code>ensure_ascii=False</code>设置，禁止将中文字符转为ascii码，这样输出的json就支持中文了。</p>
 
-<pre><code>// 修改manifest时间戳
-if(options.manifest){
-    // 获取manifest文件路径
-    var manifest = fis.util.realpath(options.manifest);
-    //异步读写
-    var fs=require('fs');
-                           
-     //读取文件
-     fs.readFile(manifest,'utf8',function(err,data){
-        if(err){
-            return console.log(err);
-        }
-        // 按照特征字符获取时间戳
-        var start = data.indexOf("CACHE MANIFEST");
-        var end = data.indexOf("CACHE:");
+<p>修改完之后，使用<code>python -m py_compile search.py</code>命令编译一下search文件，然后将新的<code>search.py</code>和<code>search.pyc</code>（编译文件）替换掉旧的即可。</p>
 
-        // 生成新的时间戳
-        var prefix = "CACHE MANIFEST \n#"+new Date().toString()+"\n\n";
-        // 拼接新的文件内容
-        var newContent = prefix+data.substring(end);
-        console.log(newContent)
-        
-        // 写入文件 
-        fs.writeFile(manifest, newContent, function(err) {
-            if(err) {
-                return console.log(err);
-            }
-            console.log('generate manifest file done');
-        });
-     })
-}
-</code></pre>
+<p>注：mkdocs的安装目录在<code>/Library/Python/2.7/site-packages/mkdocs/</code></p>
 
-<p>使用方法很简单，使用－M加上manifest文件路径即可：</p>
-
-<pre><code>fis release -d mobile -p -M ../mobile/index.manifest
-</code></pre>
-
-<p>更新的时间戳长这样：</p>
-
-<pre><code>CACHE MANIFEST 
-#Thu May 28 2015 15:57:50 GMT+0800 (CST)
-
-CACHE:
-#index.html
-lib/css/lib.css
-lib/js/lib.js
-</code></pre>
-
-<p>怎么样，效果不错吧。分享出来，希望能给有类似需求的同学有所启发。</p>
+<p>修改完成之后，<code>mkdocs build</code>一下，看看效果吧！</p>
 
 </article>
 <p class="lotus-anno">声明: 本文采用 <a href="http://creativecommons.org/licenses/by-nc-sa/3.0/" rel="nofollow" target="_blank" title="自由转载-非商用-非衍生-保持署名">BY-NC-SA</a> 授权。转载请注明转自: <a href="" title="" rel="nofollow">wyqbailey</a></p>
 
 <section class="lotus-nextpage fn-clear">
     
-    <div class="lotus-nextpage-left"><a class="prev" href="/2015/04/21/get%20return%20value%20form%20js%20in%20webview.html" rel="prev">&laquo;&nbsp;native app调用webview中的js方法获取返回值</a></div>
+    <div class="lotus-nextpage-left"><a class="prev" href="/2015/07/13/device-width-in-webview-on-ios.html" rel="prev">&laquo;&nbsp;移动设备上webview的device-width宽度问题</a></div>
     
-    
-    <div class="lotus-nextpage-right"><a class="next" href="/2015/06/17/how-to-create-the-pomodoro-technique.html" rel="next">番茄工作法是怎么发明的？&nbsp;&raquo;</a></div>
     
 </section>
 
 <!-- 多说评论框 start -->
-    <div class="ds-thread" data-thread-key="/2015/06/02/fis-manifest-command" data-title="自定义扩展fis的release命令，增加更新index.manifest时间戳的功能" data-url=""></div>
+    <div class="ds-thread" data-thread-key="/2015/08/13/make-mkdocs-support-chinese" data-title="让mkdocs支持中文搜索" data-url=""></div>
 <!-- 多说评论框 end -->
 <!-- 多说公共JS代码 start (一个网页只需插入一次) -->
 <script type="text/javascript">
